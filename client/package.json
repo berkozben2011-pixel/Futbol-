@@ -1,0 +1,11 @@
+{
+  "name": "mobile-football-client",
+  "version": "1.0.0",
+  "description": "Mobil 5v5 Futbol Oyunu - İstemci",
+  "scripts": {
+    "start": "http-server -c-1 -p 8080"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

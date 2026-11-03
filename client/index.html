@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mobil 5v5 Futbol Oyunu</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #111; font-family: sans-serif; user-select: none; }
+    #ui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
+    .interactive { pointer-events: auto; }
+    #hud { display: flex; justify-content: space-between; padding: 15px; color: white; font-weight: bold; font-size: 20px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); }
+    #controls { display: flex; justify-content: space-between; padding: 20px; align-items: flex-end; }
+
+    .joystick-area { width: 120px; height: 120px; background: rgba(255,255,255,0.2); border-radius: 50%; position: relative; touch-action: none; }
+    .joystick-knob { width: 50px; height: 50px; background: rgba(255,255,255,0.8); border-radius: 50%; position: absolute; top: 35px; left: 35px; pointer-events: none; transition: transform 0.02s linear; }
+
+    .action-buttons { display: grid; grid-template-columns: repeat(3, 70px); gap: 10px; }
+    .btn { width: 70px; height: 70px; background: rgba(0,0,0,0.5); border: 2px solid white; border-radius: 50%; color: white; font-weight: bold; display: flex; align-items: center; justify-content: center; font-size: 13px; text-align: center; touch-action: none; }
+    .btn:active { background: rgba(255,255,255,0.3); }
+
+    #main-menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #1b5e20, #000); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 10; }
+    .menu-btn { padding: 15px 30px; margin: 10px; font-size: 18px; font-weight: bold; background: #ff9800; border: none; border-radius: 8px; color: white; cursor: pointer; width: 220px; }
+    .menu-btn:active { background: #f57c00; }
+
+    #goal-toast { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); color: #ffeb3b; font-size: 42px; font-weight: 900; text-shadow: 3px 3px 8px rgba(0,0,0,0.9); opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 5; text-align: center; white-space: nowrap; }
+
+    #end-match-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 20; text-align: center; white-space: pre-line; }
+    #end-match-text { font-size: 28px; font-weight: bold; margin-bottom: 20px; }
+
+    #online-modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 15; }
+    #online-panel { background: #1b3a1e; padding: 25px; border-radius: 12px; width: 280px; text-align: center; color: white; }
+    #online-panel input { width: 90%; padding: 10px; margin: 10px 0; border-radius: 6px; border: none; font-size: 16px; text-align: center; text-transform: uppercase; }
+    #online-status { min-height: 40px; font-size: 14px; margin-top: 10px; }
+    .small-btn { padding: 8px 14px; margin: 4px; border-radius: 6px; border: none; background: #ff9800; color: white; font-weight: bold; cursor: pointer; }
+
+    #character-select { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #0d2b10, #000); display: none; flex-direction: column; align-items: center; justify-content: center; color: white; z-index: 12; overflow-y: auto; padding: 20px 0; box-sizing: border-box; }
+    #character-select h2 { margin-bottom: 6px; }
+    #character-select .hint { font-size: 13px; opacity: 0.75; margin-bottom: 16px; }
+    #character-cards { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; max-width: 700px; padding: 0 12px; }
+    .char-card { background: rgba(255,255,255,0.06); border: 2px solid rgba(255,255,255,0.15); border-radius: 10px; width: 190px; padding: 14px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+    .char-card:hover, .char-card:active { border-color: #ff9800; background: rgba(255,152,0,0.12); }
+    .char-card .char-name { font-size: 17px; font-weight: bold; margin-bottom: 2px; }
+    .char-card .char-role { font-size: 12px; opacity: 0.7; margin-bottom: 8px; }
+    .char-card .stat-row { display: flex; align-items: center; font-size: 11px; margin: 3px 0; gap: 6px; }
+    .char-card .stat-label { width: 62px; text-align: right; opacity: 0.85; flex-shrink: 0; }
+    .char-card .stat-bar-bg { flex: 1; height: 6px; background: rgba(255,255,255,0.15); border-radius: 3px; overflow: hidden; }
+    .char-card .stat-bar-fill { height: 100%; background: #4caf50; }
+    .char-card .color-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+    #char-select-cancel { margin-top: 18px; }
+  </style>
+</head>
+<body>
+
+  <!-- ANA MENÜ -->
+  <div id="main-menu">
+    <h1>⚽ MOBİL FUTBOL 5v5</h1>
+    <button class="menu-btn" id="btn-play">HIZLI MAÇ</button>
+    <button class="menu-btn" id="btn-online">ONLINE ODA</button>
+    <button class="menu-btn" id="btn-training">ANTRENMAN</button>
+  </div>
+
+  <!-- ONLINE ODA MODALI -->
+  <div id="online-modal">
+    <div id="online-panel">
+      <h2>Online Oda</h2>
+      <button class="small-btn" id="btn-create-room">Oda Kur</button>
+      <div>veya</div>
+      <input id="join-code-input" placeholder="ODA KODU" maxlength="6">
+      <button class="small-btn" id="btn-join-room">Odaya Katıl</button>
+      <div id="online-status"></div>
+      <button class="small-btn" id="btn-ready" style="display:none; background:#2e7d32;">HAZIRIM</button>
+      <button class="small-btn" id="btn-online-cancel" style="background:#555;">Vazgeç</button>
+    </div>
+  </div>
+
+  <!-- KARAKTER SEÇİM EKRANI -->
+  <div id="character-select">
+    <h2>Karakterini Seç</h2>
+    <div class="hint">Sahada kontrol edeceğin oyuncuyu seç (orta saha pozisyonunda başlar)</div>
+    <div id="character-cards"></div>
+    <button class="menu-btn" id="char-select-cancel" style="background:#555;">Geri</button>
+  </div>
+
+  <!-- OYUN İÇİ ARAYÜZ (HUD & KONTROLLER) -->
+  <div id="ui-container" style="display:none;">
+    <div id="hud">
+      <div id="score-board">EV 0 - 0 DEP</div>
+      <div id="match-timer">05:00</div>
+    </div>
+    <div id="controls">
+      <div class="joystick-area interactive" id="joystick">
+        <div class="joystick-knob" id="joystick-knob"></div>
+      </div>
+      <div class="action-buttons interactive">
+        <div class="btn" id="btn-pass">PAS</div>
+        <div class="btn" id="btn-through">ARA PAS</div>
+        <div class="btn" id="btn-shoot" style="background: rgba(255,0,0,0.6);">ŞUT</div>
+        <div class="btn" id="btn-tackle">MÜDAHALE</div>
+        <div class="btn" id="btn-sprint">SPRINT</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="goal-toast"></div>
+
+  <div id="end-match-overlay">
+    <div id="end-match-text"></div>
+    <button class="menu-btn" id="btn-back-to-menu">ANA MENÜYE DÖN</button>
+  </div>
+
+  <!-- Three.js Kütüphanesi CDN üzerinden (r128) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+  <!-- Online oda için socket.io-client (yalnızca "Online Oda" seçilirse gerçekten kullanılır) -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
