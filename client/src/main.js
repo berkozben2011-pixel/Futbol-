@@ -7,7 +7,7 @@ import { GamepadInput } from './ui/GamepadInput.js';
 import { CharactersDatabase, getAllCharacterIds } from './characters/CharacterData.js';
 
 // Kendi sunucunuzu farklı bir adreste çalıştırıyorsanız burayı güncelleyin.
-const SERVER_URL = 'http://localhost:3000';
+const SERVER_URL = 'https://futbol-2x2m.onrender.com/';
 
 window.addEventListener('DOMContentLoaded', () => {
   const mainMenu = document.getElementById('main-menu');
