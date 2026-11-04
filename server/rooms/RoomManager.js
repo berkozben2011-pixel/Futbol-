@@ -3,24 +3,24 @@ class RoomManager {
     this.rooms = new Map();
   }
 
-  createRoom(socketId) {
+  createRoom(socketId, character = 'berk') {
     const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     this.rooms.set(roomCode, {
       code: roomCode,
       host: socketId,
-      players: [{ id: socketId, team: 'home', character: 'berk', ready: false }],
+      players: [{ id: socketId, team: 'home', character: character || 'berk', ready: false }],
       state: 'lobby' // lobby, playing, ended
     });
     return roomCode;
   }
 
-  joinRoom(roomCode, socketId) {
+  joinRoom(roomCode, socketId, character = 'yigit') {
     const room = this.rooms.get(roomCode);
     if (!room) return { success: false, message: 'Oda bulunamadı!' };
     if (room.state !== 'lobby') return { success: false, message: 'Maç zaten başladı!' };
     if (room.players.length >= 2) return { success: false, message: 'Oda dolu!' };
 
-    room.players.push({ id: socketId, team: 'away', character: 'yigit', ready: false });
+    room.players.push({ id: socketId, team: 'away', character: character || 'yigit', ready: false });
     return { success: true, room };
   }
 
