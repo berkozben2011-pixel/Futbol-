@@ -14,7 +14,8 @@ export class AIController {
     const awayChaser = this.findChaser(players, ball, 'away');
 
     for (const player of players) {
-      if (player.isUser) continue;
+      // İnsan oyuncuların yerel karakteri ve ağ üzerinden kontrol edilen rakipleri AI yönetmemeli.
+      if (player.isUser || player.isRemote) continue;
 
       const isChaser = player === homeChaser || player === awayChaser;
       const attackGoalZ = player.team === 'home' ? PITCH.maxZ : PITCH.minZ;

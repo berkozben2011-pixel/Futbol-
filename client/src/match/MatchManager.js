@@ -75,17 +75,33 @@ export class MatchManager {
     const allIds = getAllCharacterIds();
     const pickChar = (offset, i) => allIds[(offset + i) % allIds.length];
 
+    // İki istemcide de oyuncu dizilimi birebir aynı olmalı: önce HOME (5), sonra AWAY (5).
+    // Oda kaydındaki karakter seçimleri her iki ekranda da aynı modellerin yüklenmesini sağlar.
+    const roomPlayers = this.network?.room?.players || [];
+    const hostCharacterId = roomPlayers[0]?.character || 'berk';
+    const guestCharacterId = roomPlayers[1]?.character || 'yigit';
+    const online = this.mode === 'online' && !!this.network;
+
     for (let i = 0; i < homeFormation.length; i++) {
-      const isUser = i === 3; // MF slotunu ev sahibi (bu istemcideki host ya da tek oyunculu modda insan) kontrol eder
-      const charId = isUser ? this.userCharacterId : pickChar(0, i);
-      await this.spawnPlayer('home', homeFormation[i], charId, isUser);
+      const isHumanSlot = i === 3;
+      const isUser = isHumanSlot && (!online || this.isHost);
+      const isRemote = isHumanSlot && online && this.isGuest;
+      const charId = isHumanSlot && online
+        ? hostCharacterId
+        : (isUser ? this.userCharacterId : pickChar(0, i));
+      const player = await this.spawnPlayer('home', homeFormation[i], charId, isUser, { isRemote });
+      if (isRemote) this.remoteUserPlayer = player;
     }
 
     if (this.mode !== 'training') {
       for (let i = 0; i < awayFormation.length; i++) {
-        const isRemote = this.network && i === 3; // Online modda away MF karşı tarafın insanıdır
-        const charId = pickChar(2, i);
-        const player = await this.spawnPlayer('away', awayFormation[i], charId, false, { isRemote });
+        const isHumanSlot = i === 3;
+        const isUser = isHumanSlot && online && this.isGuest;
+        const isRemote = isHumanSlot && online && this.isHost;
+        const charId = isHumanSlot && online
+          ? guestCharacterId
+          : (isUser ? this.userCharacterId : pickChar(2, i));
+        const player = await this.spawnPlayer('away', awayFormation[i], charId, isUser, { isRemote });
         if (isRemote) this.remoteUserPlayer = player;
       }
     }
