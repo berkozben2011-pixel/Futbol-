@@ -25,18 +25,18 @@ export class NetworkClient {
     });
   }
 
-  createRoom() {
+  createRoom(character) {
     return new Promise((resolve) => {
-      this.socket.emit('create_room', (res) => {
+      this.socket.emit('create_room', { character }, (res) => {
         if (res.success) this.roomCode = res.roomCode;
         resolve(res);
       });
     });
   }
 
-  joinRoom(roomCode) {
+  joinRoom(roomCode, character) {
     return new Promise((resolve) => {
-      this.socket.emit('join_room', { roomCode }, (res) => {
+      this.socket.emit('join_room', { roomCode, character }, (res) => {
         if (res.success) this.roomCode = roomCode;
         resolve(res);
       });
