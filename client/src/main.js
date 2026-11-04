@@ -116,7 +116,7 @@ window.addEventListener('DOMContentLoaded', () => {
       onlineStatus.textContent = 'Sunucuya bağlanılıyor...';
       network = new NetworkClient(SERVER_URL);
       await network.connect();
-      const res = await network.createRoom();
+      const res = await network.createRoom(selectedCharacterId);
       if (!res.success) { onlineStatus.textContent = 'Oda oluşturulamadı.'; return; }
       onlineStatus.textContent = `Oda kodu: ${res.roomCode}\nRakip bekleniyor...`;
       listenForOpponentAndStart(network, 'host');
@@ -133,7 +133,7 @@ window.addEventListener('DOMContentLoaded', () => {
       onlineStatus.textContent = 'Sunucuya bağlanılıyor...';
       network = new NetworkClient(SERVER_URL);
       await network.connect();
-      const res = await network.joinRoom(code);
+      const res = await network.joinRoom(code, selectedCharacterId);
       if (!res.success) { onlineStatus.textContent = res.message || 'Odaya katılınamadı.'; return; }
       onlineStatus.textContent = 'Odaya katıldın. Hazır olduğunda "HAZIRIM" bas.';
       btnReady.style.display = 'inline-block';
@@ -151,9 +151,9 @@ window.addEventListener('DOMContentLoaded', () => {
         onlineStatus.textContent = 'Rakip katıldı! Hazır olduğunda "HAZIRIM" bas.';
       }
     });
-    net.on('start_match', () => {
+    net.on('start_match', (room) => {
       onlineModal.style.display = 'none';
-      startMatch({ mode: 'online', network: { role, client: net } });
+      startMatch({ mode: 'online', network: { role, client: net, room } });
     });
   }
 
