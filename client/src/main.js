@@ -200,8 +200,18 @@ window.addEventListener('DOMContentLoaded', () => {
       onPass: () => matchManager.handleAction('pass'),
       onThroughPass: () => matchManager.handleAction('through'),
       onShoot: () => matchManager.handleAction('shoot'),
-      onTackle: () => matchManager.handleAction('tackle')
+      onTackle: () => matchManager.handleAction('tackle'),
+      onSwitchPlayer: () => matchManager.switchPlayer()
     });
+
+    // Klavyede Tab: aynı takımın sıradaki futbolcusuna geç.
+    const onPlayerSwitchKey = (event) => {
+      if (event.code === 'Tab' && !event.repeat) {
+        event.preventDefault();
+        matchManager.switchPlayer();
+      }
+    };
+    window.addEventListener('keydown', onPlayerSwitchKey);
 
     engine.startRenderLoop((delta) => {
       gamepad.poll();
