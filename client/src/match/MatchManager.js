@@ -53,6 +53,10 @@ export class MatchManager {
 
     this.remoteMoveInput = { x: 0, z: 0 };
     this.remoteSprinting = false;
+    this.localTeam = this.isGuest ? 'away' : 'home';
+    this.activePlayerIndex = this.isGuest ? 8 : 3;
+    this.remoteActivePlayerIndex = 8;
+    this.cameraLookTarget = new THREE.Vector3();
 
     this.userCharacterId = userCharacterId;
     this._syncTimer = 0;
@@ -107,6 +111,35 @@ export class MatchManager {
     }
 
     this.resetKickoff();
+    this.setActivePlayer(this.isGuest ? this.players.findIndex(p => p.team === 'away' && p.role === 'MF') : this.players.findIndex(p => p.team === 'home' && p.role === 'MF'));
+  }
+
+  // Takımın kontrol edilen futbolcusunu değiştirir. Tab / LB ile sıradaki oyuncuya geçilir.
+  switchPlayer() {
+    const teamPlayers = this.players
+      .map((p, index) => ({ p, index, distance: p.mesh.position.distanceTo(this.ball.mesh.position) }))
+      .filter(item => item.p.team === this.localTeam)
+      .sort((a, b) => a.distance - b.distance);
+    if (!teamPlayers.length) return;
+    // Önce topa en yakın futbolcuya, zaten o seçiliyse sıradaki en yakına geç.
+    const current = teamPlayers.findIndex(item => item.index === this.activePlayerIndex);
+    const next = teamPlayers[(current + 1) % teamPlayers.length];
+    this.setActivePlayer(next.index);
+  }
+
+  setActivePlayer(index) {
+    const player = this.players[index];
+    if (!player || player.team !== this.localTeam) return;
+    this.activePlayerIndex = index;
+    if (this.isGuest) {
+      // Guest'in kontrol seçimi host'a input ile gönderilir; host tarafında remote olarak atanır.
+      this.remoteUserPlayer = player;
+      for (const p of this.players) p.isRemote = p === player;
+      if (this.network?.client) this.network.client.sendInput({ x: this.moveInput.x, z: this.moveInput.z, sprint: this.sprinting, playerIndex: index });
+    } else {
+      this.userPlayer = player;
+      for (const p of this.players) p.isUser = p === player;
+    }
   }
 
   spawnPlayer(team, formationSlot, charId, isUser, extra = {}) {
@@ -230,6 +263,14 @@ export class MatchManager {
 
   onRemoteInput(data) {
     // Sadece host bunu dinler: karşı tarafın joystick/aksiyon verisi
+    if (Number.isInteger(data.playerIndex)) {
+      const requested = this.players[data.playerIndex];
+      if (requested && requested.team === 'away') {
+        this.remoteActivePlayerIndex = data.playerIndex;
+        this.remoteUserPlayer = requested;
+        for (const p of this.players) p.isRemote = p === requested;
+      }
+    }
     this.remoteMoveInput.x = data.x || 0;
     this.remoteMoveInput.z = data.z || 0;
     this.remoteSprinting = !!data.sprint;
@@ -249,7 +290,8 @@ export class MatchManager {
       x: this.moveInput.x,
       z: this.moveInput.z,
       sprint: this.sprinting,
-      action: this.pendingAction
+      action: this.pendingAction,
+      playerIndex: this.activePlayerIndex
     });
     this.pendingAction = null;
   }
@@ -266,7 +308,8 @@ export class MatchManager {
       players: this.players.map(p => ({ x: p.mesh.position.x, z: p.mesh.position.z, ry: p.mesh.rotation.y })),
       score: this.score,
       timeLeft: this.timeLeft,
-      celebratingIndex
+      celebratingIndex,
+      hostActivePlayerIndex: this.activePlayerIndex
     });
   }
 
@@ -384,12 +427,9 @@ export class MatchManager {
         this.endCelebration();
       }
 
-      // Kutlama yokken kamerayı kendi karakterimiz olan away MF'e odakla
+      // Kutlama yokken kamera guest'in seçtiği aktif futbolcuyu takip eder.
       if (idx < 0) {
-        if (this.remoteUserPlayerIndex === undefined) {
-          this.remoteUserPlayerIndex = this.players.findIndex(p => p.isRemote);
-        }
-        const myPlayer = this.players[this.remoteUserPlayerIndex];
+        const myPlayer = this.players[this.activePlayerIndex];
         if (myPlayer) this.updateCameraFor(myPlayer);
       }
     }
@@ -473,15 +513,23 @@ export class MatchManager {
     this.updateCameraFor(this.userPlayer);
   }
 
+  // FC tarzı takip: aktif oyuncu ile top arasındaki noktayı kadrajda tutar.
   updateCameraFor(player) {
     if (!player) return;
     const cam = this.engine.camera;
     const p = player.mesh.position;
-    const behind = player.team === 'home' ? -8 : 8;
-    cam.position.x += (p.x - cam.position.x) * 0.08;
-    cam.position.z = p.z + behind;
-    cam.position.y = 6;
-    cam.lookAt(p.x, 1, p.z + (player.team === 'home' ? 6 : -6));
+    const b = this.ball.mesh.position;
+    const teamForward = player.team === 'home' ? 1 : -1;
+    const targetX = p.x * 0.68 + b.x * 0.32;
+    const targetZ = p.z * 0.68 + b.z * 0.32;
+    const desiredX = targetX;
+    const desiredY = 15.5;
+    const desiredZ = targetZ - teamForward * 20;
+    cam.position.x += (desiredX - cam.position.x) * 0.075;
+    cam.position.y += (desiredY - cam.position.y) * 0.075;
+    cam.position.z += (desiredZ - cam.position.z) * 0.075;
+    this.cameraLookTarget.set(targetX, 0.5, targetZ + teamForward * 5);
+    cam.lookAt(this.cameraLookTarget);
   }
 
   endMatch() {
